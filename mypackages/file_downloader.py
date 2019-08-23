@@ -3,133 +3,26 @@
 
 import threading
 import time 
-import requests 
-import ftplib
-import paramiko
-import sys, getopt
 import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 from collections import namedtuple
-from enum import Enum, unique
+from .downloader_details import DownloaderDetails
+from .downloaders import FtpDownloader, HttpDownloader, SftpDownloader
 
-class DownloaderDetails:
-    success = 'success'
-    failure = 'failure'
-
-    hostnameKey = 'hostname'
-    portKey = 'port'
-    usernameKey = 'username'
-    passwordKey = 'password'
-    isValidKey = 'isValid'
-    schemeKey = 'scheme'
-    pathKey = 'path'
-    dirKey = 'dir'
-    outputFilenameKey = 'outputFilename'
-    outputExtensionKey = 'outputExtension'
-    outputFilenameSuffixKey = 'outputFilenameSuffix'
-    paramsKey = 'params'
-    queryKey = 'query'
-    netlocKey = 'netloc'
-    fragmentKey = 'fragment'
-    messageKey = 'message'
-    inputUrlKey = 'inputUrl'
-    urlKey = 'url'
-    msgKey = 'msg'
-    outputKey = 'output'
-
-    @unique
-    class Status(Enum):
-        SUCCESS = 0,
-        WARNING = 1,
-        FAILURE = 2,
-        INVALID_INPUT = 3,
-
-class BaseDownloader:
-    def download(self, urlInfo, outputFile, chunkSize): pass
-
-class LocalFileDownloader(BaseDownloader):
-    def download(self, urlInfo, outputFile, chunkSize): pass
-
-class SftpDownloader(BaseDownloader):
-    def download(self, urlInfo, outputFile, chunkSize):
-        
-        hostname = urlInfo[DownloaderDetails.hostnameKey]
-        port = 0
-        if urlInfo[DownloaderDetails.portKey]:
-            port = urlInfo[DownloaderDetails.portKey]
-
-        username = urlInfo[DownloaderDetails.usernameKey]
-        password = urlInfo[DownloaderDetails.passwordKey]
-        dirName = urlInfo[DownloaderDetails.dirKey]
-        fileName = urlInfo[DownloaderDetails.outputFilenameKey] + '.' + urlInfo[DownloaderDetails.outputExtensionKey]
-        
-        try:
-            ssh_client = paramiko.SSHClient()
-            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_client.connect(hostname=hostname, port=port, username=username, password=password, timeout=60)
-
-            with (ssh_client.open_sftp()) as ftp_client:
-                ftp_client.get(dirName  + '/' + fileName, outputFile)
-
-            return True, DownloaderDetails.success 
-        except (paramiko.BadHostKeyException, paramiko.AuthenticationException,paramiko.SSHException) as e:
-            return False, str(e)
-  
-
-class HttpDownloader(BaseDownloader):
-    def download(self, urlInfo, outputFile, chunkSize):
-        try:
-            url = urlInfo[DownloaderDetails.inputUrlKey]
-            with requests.get(url, stream=True) as r:
-                
-                r.raise_for_status()
-                with open(outputFile, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size = chunkSize):
-                        if chunk:
-                            f.write(chunk)
-                return True, DownloaderDetails.success
-        except requests.exceptions.HTTPError as e:
-            return False, str(e)
-        except requests.exceptions.RequestException as e:
-            return False, str(e)
-        
-class FtpDownloader(BaseDownloader):
-    def download(self, urlInfo, outputFile, chunkSize):
-
-        hostname = urlInfo[DownloaderDetails.hostnameKey]
-        port = 0
-        if urlInfo[DownloaderDetails.portKey]:
-            port = urlInfo[DownloaderDetails.portKey]
-
-        username = urlInfo[DownloaderDetails.usernameKey]
-        password = urlInfo[DownloaderDetails.passwordKey]
-        dirName = urlInfo[DownloaderDetails.dirKey]
-        fileName = urlInfo[DownloaderDetails.outputFilenameKey] + '.' + urlInfo[DownloaderDetails.outputExtensionKey]
-
-        try:
-            with ftplib.FTP() as ftp:
-                ftp.connect(host=hostname, port=port, timeout=60)
-                ftp.login(username, password)
-                ftp.cwd(dirName)
-                with open(outputFile, 'wb') as op:
-                    ftp.retrbinary('RETR ' + fileName, op.write, blocksize=chunkSize)
-            return True, DownloaderDetails.success
-        except ftplib.all_errors as e:
-            return False, str(e)
-        
 class GenericDownloader:
         
     downloaders = {}
         
-    def __init__(self, sourceList= "", numThreads = 5, destination = "", chunkSize=8192):
+    def __init__(self, sourceList= '', sourceListDelimiter=',', numThreads = 5, destination = '', chunkSize=8192):
         GenericDownloader.initDownloaders()
 
         self.sourceList = sourceList
         self.numThreads = numThreads
         self.outputDir = destination
         self.chunkSize = chunkSize
+        self.delimiter = sourceListDelimiter
 
         self.downloadsList = []
         self.successes = []
@@ -181,17 +74,15 @@ class GenericDownloader:
         else:
             self.failures.append(resultObj)
             print('[{}]FAILURE:{}'.format(threadId, url))
-
-    def parseInputSources(self):
-        pathToFile = self.sourceList
-        delimiter = ','
-
+    
+    @staticmethod
+    def parseInputSources(pathToFile, delimiter):
         urlSet = set()
         try:
             with open(pathToFile, "r") as f:
                 if (f.mode != 'r'):
                     print('Invalid source list file: {}'.format(pathToFile))
-                    return False
+                    return False, []
 
                 line = f.readline()
 
@@ -210,12 +101,12 @@ class GenericDownloader:
                         
                     line = f.readline()
                 
-                self.downloadsList = list(urlSet)
+                #self.downloadsList = list(urlSet)
+                return True, list(urlSet)
 
-                return True
         except FileNotFoundError:
             print('Input file not found: {}'.format(pathToFile))
-            return False
+            return False, []
     
     def validateInputs(self):
         if not self.sourceList or not self.outputDir:
@@ -230,7 +121,8 @@ class GenericDownloader:
                 print('Failed to create directory {}:{}'.format(self.outputDir, str(e)))
                 return DownloaderDetails.Status.INVALID_INPUT
 
-        if not self.parseInputSources():
+        (parseResult, self.downloadsList) = GenericDownloader.parseInputSources(self.sourceList, self.delimiter)
+        if not parseResult:
             print('Error parsing input source list: {}'.format(self.sourceList))
             return DownloaderDetails.Status.INVALID_INPUT
 
@@ -325,8 +217,7 @@ class GenericDownloader:
         GenericDownloader.downloaders['http'] = HttpDownloader()
         GenericDownloader.downloaders['ftp'] = FtpDownloader()
         GenericDownloader.downloaders['sftp'] = SftpDownloader()
-        #GenericDownloader.downloaders['file'] = FileDownloader()
-
+"""
 def main(argv):
 
     helpMsg = 'file_downloader.py -s <sourcelist> -d <destination> [-n <numthreads=5> -c <chunksize=1014>]'
@@ -363,11 +254,10 @@ def main(argv):
         sys.exit(2)
 
     downloader = GenericDownloader(sourceList=sourceList, numThreads=numThreads, destination=destination, chunkSize=chunkSize)
-    #Testing adding a custom downloader
-    downloader.registerDownloader('file', LocalFileDownloader())
-    downloader.startDownloads()
 
     print('Done!')
     
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+"""

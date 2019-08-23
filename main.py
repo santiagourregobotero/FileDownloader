@@ -1,13 +1,6 @@
 import sys, getopt
 from mypackages.file_downloader import GenericDownloader
 
-"""
-import importlib.util
-spec = importlib.util.spec_from_file_location("file_downloader", "./mypackages/file_downloader.py")
-Downloader = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(Downloader)
-"""
-
 def main(argv):
 
     helpMsg = 'file_downloader.py -s <sourcelist> -d <destination> [-n <numthreads=5> -c <chunksize=1014>]'

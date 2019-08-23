@@ -2,3 +2,5 @@
 .vscode/
 file_downloader.ipynb
 file_downloader.zip
+docs/
+outputs/
