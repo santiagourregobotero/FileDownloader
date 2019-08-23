@@ -1,29 +1,31 @@
 from enum import Enum, unique
+from dataclasses import dataclass
 
+@dataclass
 class DownloaderDetails:
-    success = 'success'
-    failure = 'failure'
+    success: str = 'success'
+    failure: str = 'failure'
 
-    hostnameKey = 'hostname'
-    portKey = 'port'
-    usernameKey = 'username'
-    passwordKey = 'password'
-    isValidKey = 'isValid'
-    schemeKey = 'scheme'
-    pathKey = 'path'
-    dirKey = 'dir'
-    outputFilenameKey = 'outputFilename'
-    outputExtensionKey = 'outputExtension'
-    outputFilenameSuffixKey = 'outputFilenameSuffix'
-    paramsKey = 'params'
-    queryKey = 'query'
-    netlocKey = 'netloc'
-    fragmentKey = 'fragment'
-    messageKey = 'message'
-    inputUrlKey = 'inputUrl'
-    urlKey = 'url'
-    msgKey = 'msg'
-    outputKey = 'output'
+    hostnameKey: str = 'hostname'
+    portKey: str = 'port'
+    usernameKey: str = 'username'
+    passwordKey: str = 'password'
+    isValidKey: str = 'isValid'
+    schemeKey: str = 'scheme'
+    pathKey: str = 'path'
+    dirKey: str = 'dir'
+    outputFilenameKey: str = 'outputFilename'
+    outputExtensionKey: str = 'outputExtension'
+    outputFilenameSuffixKey: str = 'outputFilenameSuffix'
+    paramsKey: str = 'params'
+    queryKey: str = 'query'
+    netlocKey: str = 'netloc'
+    fragmentKey: str = 'fragment'
+    messageKey: str = 'message'
+    inputUrlKey: str = 'inputUrl'
+    urlKey: str = 'url'
+    msgKey: str = 'msg'
+    outputKey: str = 'output'
 
     @unique
     class Status(Enum):

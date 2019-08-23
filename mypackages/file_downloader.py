@@ -20,17 +20,15 @@ class GenericDownloader:
 
     downloaders = {}
         
-    #def __init__(self, sourceList= '', sourceListDelimiter=',', numThreads = 5, destination = '', chunkSize=8192):
-    def __init__(self, urlsList, numThreads = 5, destination = '', chunkSize=8192):
+    def __init__(self, urlsList, numThreads = 5, destination = '', chunkSize=8192, timeout=60.0):
         
         if not urlsList or not destination:
             raise ValueError('Required params are missing or empty: urlsList or destination')
         
-        GenericDownloader.initDownloaders()
+        GenericDownloader.initDownloaders(chunkSize, timeout)
 
         self.numThreads = numThreads
         self.outputDir = destination
-        self.chunkSize = chunkSize
         self.downloadsList = GenericDownloader.cleanUrlsList(urlsList)
         self.successes = []
         self.failures = []
@@ -68,7 +66,7 @@ class GenericDownloader:
         outputFile = self.outputDir
         outputFile = outputFile + urlInfo[DownloaderDetails.outputFilenameKey] + '_' + urlInfo[DownloaderDetails.outputFilenameSuffixKey] + '.' + urlInfo[DownloaderDetails.outputExtensionKey]
         myFile = Path(outputFile)
-        result, msg = GenericDownloader.downloaders[scheme].download(urlInfo, outputFile, self.chunkSize)
+        result, msg = GenericDownloader.downloaders[scheme].download(urlInfo, outputFile)
         self.handleDownloadResult(url, result, msg, outputFile)
 
         #if the downloaded failed then delete the partial file
@@ -160,11 +158,11 @@ class GenericDownloader:
         return results
         
     @staticmethod
-    def initDownloaders():
-        GenericDownloader.downloaders['https'] = HttpDownloader()
-        GenericDownloader.downloaders['http'] = HttpDownloader()
-        GenericDownloader.downloaders['ftp'] = FtpDownloader()
-        GenericDownloader.downloaders['sftp'] = SftpDownloader()
+    def initDownloaders(chunkSize, timeout):
+        GenericDownloader.downloaders['https'] = HttpDownloader(chunkSize, timeout)
+        GenericDownloader.downloaders['http'] = HttpDownloader(chunkSize, timeout)
+        GenericDownloader.downloaders['ftp'] = FtpDownloader(chunkSize, timeout)
+        GenericDownloader.downloaders['sftp'] = SftpDownloader(chunkSize, timeout)
 
     @staticmethod
     def parseInputSources(pathToFile, delimiter):
@@ -181,11 +179,9 @@ class GenericDownloader:
     @staticmethod
     def cleanUrlsList(urlsList):
         urlSet = set()
-
-        for u in urlsList:
-            if not u: 
-                continue
-            urlSet.add(u.strip())
+        
+        urls = [u.strip() for u in urlsList if u]
+        urlSet.update(urls)
 
         return list(urlSet)
 
