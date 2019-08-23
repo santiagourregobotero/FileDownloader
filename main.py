@@ -33,7 +33,7 @@ def main(argv):
         print(helpMsg)
         sys.exit(2)
 
-    downloader = GenericDownloader(sourceList=sourceList, numThreads=numThreads, destination=destination, chunkSize=chunkSize)
+    downloader = GenericDownloader.fromInputFile(sourceList=sourceList, sourceListDelimiter=',', numThreads=numThreads, destination=destination, chunkSize=chunkSize)
     downloader.startDownloads()
     print('Done!')
     
