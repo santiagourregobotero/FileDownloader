@@ -10,7 +10,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 from collections import namedtuple
-from .downloader_details import DownloaderDetails
+from typing import List
+from .downloader_details import UrlInfo, Status, DownloadResult
 from .downloaders import FtpDownloader, HttpDownloader, SftpDownloader
 
 logging.config.fileConfig('./config/logging.conf')
@@ -20,7 +21,7 @@ class GenericDownloader:
 
     downloaders = {}
         
-    def __init__(self, urlsList, numThreads = 5, destination = '', chunkSize=8192, timeout=60.0):
+    def __init__(self, urlsList: List[str], destination:str, numThreads:int = 5, chunkSize:int = 8192, timeout:float = 60.0):
         
         if not urlsList or not destination:
             raise ValueError('Required params are missing or empty: urlsList or destination')
@@ -41,58 +42,55 @@ class GenericDownloader:
             os.makedirs(self.outputDir)
 
     @classmethod
-    def fromList(cls, urlsList, numThreads = 5, destination = '', chunkSize = 8192):
-        return cls(urlsList, numThreads, destination, chunkSize)
+    def fromList(cls, urlsList:list, destination:str, numThreads:int = 5, chunkSize:int = 8192):
+        return cls(urlsList=urlsList, numThreads=numThreads, destination=destination, chunkSize=chunkSize)
 
     @classmethod
-    def fromInputFile(cls, sourceList, sourceListDelimiter, numThreads = 5, destination = '', chunkSize = 8192):
+    def fromInputFile(cls, sourceList:str, destination:str, sourceListDelimiter:str = ',', numThreads:int = 5, chunkSize:int = 8192):
         urlsList = GenericDownloader.parseInputSources(sourceList, sourceListDelimiter)
-        return cls(urlsList, numThreads, destination, chunkSize)
+        return cls(urlsList=urlsList, numThreads=numThreads, destination=destination, chunkSize=chunkSize)
     
-    def downloadFile(self, url, threadId):        
+    def downloadFile(self, url:str, threadId:int) -> bool:        
         logger.info('[%s]Downloading URL:%s',threading.get_ident(), url)
 
         urlInfo = GenericDownloader.parseUrl(url)
 
-        if not urlInfo[DownloaderDetails.isValidKey]:
+        if not urlInfo.isValid:
             self.handleDownloadResult(url, False, 'Invalid URL')
             return False
         
-        scheme = urlInfo[DownloaderDetails.schemeKey]
+        scheme = urlInfo.scheme
         if scheme not in GenericDownloader.downloaders:
             self.handleDownloadResult(url, False, 'Protocol mising or not supported')
             return False
 
-        outputFile = self.outputDir
-        outputFile = outputFile + urlInfo[DownloaderDetails.outputFilenameKey] + '_' + urlInfo[DownloaderDetails.outputFilenameSuffixKey] + '.' + urlInfo[DownloaderDetails.outputExtensionKey]
-        myFile = Path(outputFile)
+        outputFile = self.buildOutputFileFromUrl(urlInfo)
         result, msg = GenericDownloader.downloaders[scheme].download(urlInfo, outputFile)
         self.handleDownloadResult(url, result, msg, outputFile)
 
-        #if the downloaded failed then delete the partial file
+        myFile = Path(outputFile)
         if not result and myFile.exists():
             myFile.unlink()
 
         return True
 
-    def handleDownloadResult(self, url, result, msg, outputFile=''):
-        resultObj = {
-            DownloaderDetails.urlKey: url,
-            DownloaderDetails.msgKey: msg,
-            DownloaderDetails.outputKey: outputFile,
-            'status': result
-        }
+    def buildOutputFileFromUrl(self, urlInfo:UrlInfo) -> str:
+        outputFile = self.outputDir + urlInfo.outputFilename + '_' + urlInfo.outputFilenameSuffix + '.' + urlInfo.outputFilenameExtension
+        return outputFile
+
+    def handleDownloadResult(self, url:str, result:bool, msg:str, outputFile:str='') -> None:
+        downloadResult = DownloadResult(url=url, msg=msg, output=outputFile, status=result)
 
         threadId = threading.get_ident()
 
         if result:
-            self.successes.append(resultObj)
+            self.successes.append(downloadResult)
             logger.info('[%s]SUCCESS:%s', threadId, url)
         else:
-            self.failures.append(resultObj)
-            logger.error('[%s]FAILURE:%s', threadId, url)
+            self.failures.append(downloadResult)
+            logger.info('[%s]FAILURE:%s', threadId, url)
     
-    def startDownloads(self):        
+    def startDownloads(self) -> Status:        
         numDownlaods = len(self.downloadsList)
         logger.info('Number of Downloads: %s', str(len(self.downloadsList)))
 
@@ -107,55 +105,33 @@ class GenericDownloader:
         logger.info('Success: %s', str(len(self.successes)))
 
         if len(self.successes) == numDownlaods:
-            return DownloaderDetails.Status.SUCCESS
+            return Status.SUCCESS
 
         if len(self.failures) == len(self.downloadsList):
-            return DownloaderDetails.Status.FAILURE
+            return Status.FAILURE
         
-        return DownloaderDetails.Status.WARNING
+        return Status.WARNING
         
-    def registerDownloader(self, id, downloader):
-            GenericDownloader.downloaders[id] = downloader
+    def registerDownloader(self, id:str, downloader) -> None:
+        GenericDownloader.downloaders[id] = downloader
 
     @staticmethod
-    def parseUrl(url):
-        results = {}        
-        results[DownloaderDetails.inputUrlKey] = url
-        results[DownloaderDetails.isValidKey] = True
-        results[DownloaderDetails.messageKey] = ''
-        results[DownloaderDetails.outputFilenameKey] = ''
-        results[DownloaderDetails.outputFilenameSuffixKey] = str(time.time())
-        results[DownloaderDetails.outputExtensionKey] = ''
-        
+    def parseUrl(url:str) -> UrlInfo:
         try:
-            o = urlparse(url)
-
-            #check if scheme is empty, url can still be valid.
-            #(e.g. www.test.com/file.ext)
-            results[DownloaderDetails.schemeKey] = o.scheme
-            results[DownloaderDetails.netlocKey] = o.netloc
-            results[DownloaderDetails.hostnameKey] = o.hostname
-            results[DownloaderDetails.pathKey] = o.path
-            results[DownloaderDetails.paramsKey] = o.params
-            results[DownloaderDetails.queryKey] = o.query
-            results[DownloaderDetails.fragmentKey] = o.fragment
-            results[DownloaderDetails.portKey] = o.port
-            results[DownloaderDetails.usernameKey] = o.username
-            results[DownloaderDetails.passwordKey] = o.password
-
-            if results[DownloaderDetails.pathKey]:
-                paths = results[DownloaderDetails.pathKey].split('/')
+            urlInfo = UrlInfo(url)
+            if urlInfo.path:
+                paths = urlInfo.path.split('/')
                 filenameComponents = paths[-1].split('.')
-                results[DownloaderDetails.dirKey] = '/'.join(paths[:-1])
+                urlInfo.dirName = '/'.join(paths[:-1])
                 if len(filenameComponents) == 2:
-                    results[DownloaderDetails.outputFilenameKey] = filenameComponents[0]
-                    results[DownloaderDetails.outputExtensionKey] = filenameComponents[1]
+                    urlInfo.outputFilename = filenameComponents[0]
+                    urlInfo.outputFilenameExtension = filenameComponents[1]
 
         except ValueError:
-            results[DownloaderDetails.isValidKey] = False
-            results[DownloaderDetails.messageKey] = 'Unable to parse URL, due to format not matching Internet RFC standards'
+            urlInfo.isValid = False
+            urlInfo.message = 'Unable to parse URL, due to format not matching Internet RFC standards'
 
-        return results
+        return urlInfo
         
     @staticmethod
     def initDownloaders(chunkSize, timeout):
@@ -166,15 +142,18 @@ class GenericDownloader:
 
     @staticmethod
     def parseInputSources(pathToFile, delimiter):
+        if not pathToFile:
+            raise ValueError('Empty input parameter for the path/to/input_source_list')
+
         with open(pathToFile, "r") as f:
             lines = f.readlines()
 
-        urlList = set()
+        urlSet = set()
         for l in lines:
             sources = l.strip().split(delimiter)
-            urlList.update(sources)
+            urlSet.update(sources)
             
-        return list(urlList)
+        return list(urlSet)
 
     @staticmethod
     def cleanUrlsList(urlsList):
@@ -186,16 +165,11 @@ class GenericDownloader:
         return list(urlSet)
 
     @staticmethod
-    def outputResults(outputFile, outputList):
+    def outputResults(outputFile:str, outputList: List[DownloadResult]):
         if len(outputList) == 0:
             return
 
         with(open(outputFile, 'w+')) as f:
             for o in outputList:
-                line = ''
-                if o['status']:
-                    line = '{},{}'.format(o[DownloaderDetails.urlKey], o[DownloaderDetails.outputKey])
-                else:
-                    line = '{} - {}'.format(o[DownloaderDetails.urlKey], o[DownloaderDetails.msgKey])
-
+                line = '{},{}'.format(o.url, o.output) if o.status else '{} - {}'.format(o.url, o.msg)
                 f.write(line + '\n')

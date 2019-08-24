@@ -1,35 +1,47 @@
+import time 
 from enum import Enum, unique
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 @dataclass
-class DownloaderDetails:
-    success: str = 'success'
-    failure: str = 'failure'
+class UrlInfo:
+    inputUrl: str
+    isValid: bool = True
+    message: str = ''
+    port:str = 0
+    outputFilenameSuffix:str = str(time.time())
+    outputFilename:str = ''
+    outputFilenameExtension:str = ''
 
-    hostnameKey: str = 'hostname'
-    portKey: str = 'port'
-    usernameKey: str = 'username'
-    passwordKey: str = 'password'
-    isValidKey: str = 'isValid'
-    schemeKey: str = 'scheme'
-    pathKey: str = 'path'
-    dirKey: str = 'dir'
-    outputFilenameKey: str = 'outputFilename'
-    outputExtensionKey: str = 'outputExtension'
-    outputFilenameSuffixKey: str = 'outputFilenameSuffix'
-    paramsKey: str = 'params'
-    queryKey: str = 'query'
-    netlocKey: str = 'netloc'
-    fragmentKey: str = 'fragment'
-    messageKey: str = 'message'
-    inputUrlKey: str = 'inputUrl'
-    urlKey: str = 'url'
-    msgKey: str = 'msg'
-    outputKey: str = 'output'
+    scheme:str = field(init=False)
+    netloc:str = field(init=False)
+    hostname:str = field(init=False)
+    path:str = field(init=False)
+    params:str = field(init=False)
+    query:str = field(init=False)
+    fragment:str = field(init=False)
+    username:str = field(init=False)
+    password:str = field(init=False)
+    dirName:str = field(init=False)
 
-    @unique
-    class Status(Enum):
-        SUCCESS = 0,
-        WARNING = 1,
-        FAILURE = 2,
-        INVALID_INPUT = 3,
+    def __post_init__(self):
+        o = urlparse(self.inputUrl)
+        self.scheme, self.netloc, self.path, self.params, self.query, self.fragment = o
+        self.username = o.username
+        self.password = o.password
+        self.hostname = o.hostname
+
+@unique
+class Status(Enum):
+    SUCCESS = 0,
+    WARNING = 1,
+    FAILURE = 2,
+    INVALID_INPUT = 3
+
+@dataclass
+class DownloadResult:
+    url: str
+    msg: str
+    output: str
+    status: bool
+    
