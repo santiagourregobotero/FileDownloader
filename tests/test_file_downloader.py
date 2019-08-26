@@ -89,7 +89,6 @@ class TestFtpFileDownloader(unittest.TestCase):
         result, str = downloader.download(self.sftpUrlInfo, self.sftpOutputFile)
         self.assertEqual(result, False)
 
-
 class TestGenericDownloader(unittest.TestCase):
     def setUp(self):
         self.outputDir = '.\\tests\\outputs'

@@ -2,22 +2,20 @@ import requests
 import ftplib
 import paramiko
 import logging
-import logging.config
 from .downloader_details import UrlInfo, Status
 
-logging.config.fileConfig('./config/logging.conf')
-logger = logging.getLogger('downloaders')
+logger = logging.getLogger(__name__)
 
 class BaseDownloader:
     success = 'success'
-    def __init__(self, chunkSize:int, timeout:int):
+    def __init__(self, chunkSize: int, timeout: float):
         self.chunkSize = chunkSize
         self.timeout = timeout
 
-    def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str): pass
+    def download(self, urlInfo: UrlInfo, outputFile: str) -> (bool, str): pass
 
 class SftpDownloader(BaseDownloader):
-    def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str):
+    def download(self, urlInfo: UrlInfo, outputFile: str) -> (bool, str):
         try:
             dirToFetch = urlInfo.dirName
             fileToFetch = urlInfo.outputFilename + '.' + urlInfo.outputFilenameExtension
@@ -36,7 +34,7 @@ class SftpDownloader(BaseDownloader):
             return False, str(e)
 
 class HttpDownloader(BaseDownloader):
-    def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str):
+    def download(self, urlInfo: UrlInfo, outputFile: str) -> (bool, str):
         try:
             with requests.get(urlInfo.inputUrl, timeout=self.timeout, stream=True) as r:
                 r.raise_for_status()
@@ -52,7 +50,7 @@ class HttpDownloader(BaseDownloader):
         
 
 class FtpDownloader(BaseDownloader):
-    def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str):
+    def download(self, urlInfo: UrlInfo, outputFile: str) -> (bool, str):
         try:
             fileToFetch = urlInfo.outputFilename + '.' + urlInfo.outputFilenameExtension
             with ftplib.FTP() as ftp:

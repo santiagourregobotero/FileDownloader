@@ -5,6 +5,10 @@ from urllib.parse import urlparse
 
 @dataclass
 class UrlInfo:
+    """Represents all the components for a variety of different URL formats (https, ftp, sftp).  
+    Also encapsulates the filename name information that is used to construct an output file from
+    the url.
+    """
     inputUrl: str
     isValid: bool = True
     message: str = ''
