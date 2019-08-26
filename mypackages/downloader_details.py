@@ -9,9 +9,9 @@ class UrlInfo:
     isValid: bool = True
     message: str = ''
     port:str = 0
-    outputFilenameSuffix:str = str(time.time())
     outputFilename:str = ''
     outputFilenameExtension:str = ''
+    outputFilenameSuffix:str = str(time.time())
 
     scheme:str = field(init=False)
     netloc:str = field(init=False)
@@ -24,13 +24,18 @@ class UrlInfo:
     password:str = field(init=False)
     dirName:str = field(init=False)
 
-    def __post_init__(self):
+    def parse(self):
         o = urlparse(self.inputUrl)
         self.scheme, self.netloc, self.path, self.params, self.query, self.fragment = o
         self.username = o.username
         self.password = o.password
         self.hostname = o.hostname
-
+        if o.port:
+            self.port = o.port
+        
+        if not self.hostname:
+            raise ValueError('Invalid URL, missing hostname')
+        
 @unique
 class Status(Enum):
     SUCCESS = 0,

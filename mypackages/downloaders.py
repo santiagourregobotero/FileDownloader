@@ -1,7 +1,12 @@
 import requests 
 import ftplib
 import paramiko
+import logging
+import logging.config
 from .downloader_details import UrlInfo, Status
+
+logging.config.fileConfig('./config/logging.conf')
+logger = logging.getLogger('downloaders')
 
 class BaseDownloader:
     success = 'success'
@@ -9,7 +14,7 @@ class BaseDownloader:
         self.chunkSize = chunkSize
         self.timeout = timeout
 
-    def download(self, urlInfo:UrlInfo, outputFile:str): pass
+    def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str): pass
 
 class SftpDownloader(BaseDownloader):
     def download(self, urlInfo:UrlInfo, outputFile:str) -> (bool, str):
@@ -26,7 +31,8 @@ class SftpDownloader(BaseDownloader):
                 sftp_client.get(dirToFetch  + '/' + fileToFetch, outputFile)
 
             return True, BaseDownloader.success 
-        except (paramiko.BadHostKeyException, paramiko.AuthenticationException,paramiko.SSHException) as e:
+        except (paramiko.BadHostKeyException, paramiko.AuthenticationException, paramiko.SSHException, IOError) as e:
+            logging.exception('Error occurred while downloading via sftp: %s', urlInfo.inputUrl)
             return False, str(e)
 
 class HttpDownloader(BaseDownloader):
@@ -38,8 +44,10 @@ class HttpDownloader(BaseDownloader):
                     for chunk in r.iter_content(chunk_size = self.chunkSize):
                         if chunk:
                             f.write(chunk)
-                return True, BaseDownloader.success
+            
+            return True, BaseDownloader.success
         except (requests.exceptions.HTTPError, requests.exceptions.RequestException) as e:
+            logging.exception('Error occurred while downloading url: %s', urlInfo.inputUrl)
             return False, str(e)
         
 
@@ -55,4 +63,5 @@ class FtpDownloader(BaseDownloader):
                     ftp.retrbinary('RETR ' + fileToFetch, op.write, blocksize=self.chunkSize)
             return True, BaseDownloader.success
         except ftplib.all_errors as e:
+            logging.exception('Error occurred while downloading via ftp: %s', urlInfo.inputUrl)
             return False, str(e)
