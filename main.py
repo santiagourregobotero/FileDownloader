@@ -17,7 +17,7 @@ def configureLogger(logLevel: str):
 
 def main(argv):
 
-    helpMsg = 'file_downloader.py -s <sourcelist> -d <destination> [-n <numthreads=5> -c <chunksize=1014> -t <timeout=60.0> -r <delimiter=none> -l <logLevel>]'
+    helpMsg = 'file_downloader.py -s <sourcelist> -d <destination> [-n <numthreads=5> -c <chunksize=8192> -t <timeout=60.0> -r <delimiter=none> -l <logLevel>]'
     sourceList = ''
     destination = ''
 
@@ -25,25 +25,11 @@ def main(argv):
     config.read('./config/file_downloader.ini')
     defaults = config['DEFAULT']
 
-    numThreads = 5
-    if 'numThreads' in defaults:
-        numThreads = int(defaults['numThreads'])
-
-    chunkSize = 8192
-    if 'chunkSize' in defaults:
-        chunkSize = int(defaults['chunkSize'])
-    
-    timeout = 60.0
-    if 'timeout' in defaults:
-        timeout = float(defaults['timeout'])
-
-    delimiter = None
-    if 'delimiter' in defaults:
-        delimiter = defaults['delimiter']
-    
-    logLevel = 'INFO'
-    if 'logLevel' in defaults: 
-        logLevel = defaults['logLevel']
+    numThreads = int(defaults['numThreads']) if 'numThreads' in defaults else 5
+    chunkSize = int(defaults['chunkSize']) if 'chunkSize' in defaults else 8192    
+    timeout = float(defaults['timeout']) if 'timeout' in defaults else 60.0
+    delimiter = delimiter = defaults['delimiter'] if 'delimiter' in defaults else None
+    logLevel = logLevel = defaults['logLevel'] if 'logLevel' in defaults else 'INFO'
 
     try:
         opts, args = getopt.getopt(argv, "hs:d:n:c:t:r:l:")
@@ -59,11 +45,11 @@ def main(argv):
         elif opt in ('-d'):
             destination = arg
         elif opt in ('-n'):
-            numThreads = arg
+            numThreads = int(arg)
         elif opt in ('-c'):
-            chunkSize = arg
+            chunkSize = int(arg)
         elif opt in ('-t'):
-            timeout = arg
+            timeout = float(arg)
         elif opt in ('-r'):
             delimiter = arg
         elif opt in ('-l'):

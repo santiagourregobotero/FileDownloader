@@ -73,7 +73,7 @@ class GenericDownloader:
     @classmethod
     def fromInputFile(cls, sourceList: str, destination: str, sourceListDelimiter: str = None, numThreads: int = 5, chunkSize: int = 8192, timeout: float = 60.0):
         """Factory method that creates in instance of GenericDownloader class given a path to an input file consisting of URLs list
-        
+
         Args:
             sourceList (str): /path/to/input_file  where the contents of the file should list urls per line.  
                 You can have multiple urls per line separated by a delimiter specified by sourceListDelimiter
@@ -106,7 +106,8 @@ class GenericDownloader:
         """      
         numDownlaods = len(self.downloadsList)
         logger.info('Number of Downloads: %s', str(len(self.downloadsList)))
-
+        logger.info('Downloading %s files in parallel', str(self.numThreads))
+        
         with ThreadPoolExecutor(max_workers=self.numThreads) as executor:
             for index, url in enumerate(self.downloadsList):
                 executor.submit(self.downloadFile, url, index)
