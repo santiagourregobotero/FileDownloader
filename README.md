@@ -1,3 +1,6 @@
+# DESCRIPTION
+Given an input file of urls or a list of urls, of a variety of protocols(https, ftp, http, sftp), this API will handing iterating through and downloading all urls from the input.  See below for a variety of features.
+
 # REQUIREMENTS
 - Python 3+ (preferably 3.7)
 - pip install requests
