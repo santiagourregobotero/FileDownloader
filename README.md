@@ -21,7 +21,7 @@ Given an input file of urls or a list of urls, of a variety of protocols(https, 
     - l (string): INFO
     Debugging level.  Levels follow python logging (INFO, DEBUG, WARNING, CRITICAL).  See https://docs.python.org/3/library/logging.html  
 
-# SOURCE LIST FORMATTER
+# SOURCE LIST FORMAT
 The API supports the following standard protocols **(http, https, ftp, sftp)**. The source list format should be either delimited by the delimiter specified by the delimiter parameter or the per line or a combination of both.  
 
 Note: You can have multiple URLs per line, but if a URL is truncated and is part of 2 separate lines, the URL won’t download properly  
